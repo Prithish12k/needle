@@ -363,7 +363,6 @@ class Tensor(Value):
 
 
 
-
 def compute_gradient_of_variables(output_tensor, out_grad):
     """Take gradient of output node with respect to each node in node_list.
 
@@ -380,7 +379,13 @@ def compute_gradient_of_variables(output_tensor, out_grad):
     reverse_topo_order = list(reversed(find_topo_sort([output_tensor])))
 
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    for node in reverse_topo_order:
+        node.grad = sum_node_list(node_to_output_grads_list[node])
+        if node.op is not None:
+            ip_grads = node.op.gradient_as_tuple(node.grad, node)
+            for ip, ip_grad in zip(node.inputs, ip_grads):
+                node_to_output_grads_list.setdefault(ip, []).append(ip_grad)
+
     ### END YOUR SOLUTION
 
 
