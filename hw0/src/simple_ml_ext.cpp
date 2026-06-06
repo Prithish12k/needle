@@ -2,6 +2,7 @@
 #include <pybind11/numpy.h>
 #include <cmath>
 #include <iostream>
+#include <algorithm>
 
 namespace py = pybind11;
 
@@ -34,6 +35,153 @@ void softmax_regression_epoch_cpp(const float *X, const unsigned char *y,
 
     /// BEGIN YOUR CODE
 
+    auto matmul = [](const float *A, const float *B, float* M, size_t r, size_t k, size_t c)
+    {
+        std::fill(M, M + (r*c), 0.0f);
+
+        for (size_t i {}; i < r; i++)
+        {
+            for (size_t l {}; l < k; l++)
+            {
+                for (size_t j {}; j < c; j++)
+                {
+                    size_t ij = i*c + j;
+                    size_t il = i*k + l;
+                    size_t lj = l*c + j;
+
+                    M[ij] += A[il]*B[lj];
+                }
+            }
+        }
+    };
+
+    auto transpose = [](const float *A, float *M, size_t r, size_t c)
+    {
+        for (size_t i {}; i < r; i++)
+        {
+            for (size_t j {}; j < c; j++)
+            {
+                size_t ij = i*c + j;
+                size_t ji = j*r + i;
+
+                M[ji] = A[ij];
+            }
+        }
+    };
+/*
+    auto EWiseMul = [](const float *A, const float* B, float *M, size_t n)
+    {
+        for (size_t i {}; i < n; i++)
+        {
+            M[i] = A[i]*B[i];
+        }
+    };
+
+    auto relu = [](const float *A, float *M, size_t n)
+    {
+        for (size_t i {}; i < n; i++)
+        {
+            M[i] = (A[i] > 0) ? A[i] : 0.0f;
+        }
+    };
+
+    auto D_relu = [](const float *A, float *M, size_t n)
+    {
+        for (size_t i {}; i < n; i++)
+        {
+            M[i] = (A[i] > 0) ? 1.0f : 0.0f;
+        }
+    };
+*/
+    auto softmax = [](const float *A, float *M, size_t r, size_t c)
+    {
+        for (size_t i {}; i < r; i++)
+        {
+            size_t row_offset {i*c};
+
+            float max_val = A[row_offset];
+
+            for (size_t j {}; j < c; j++)
+            {
+                max_val = std::max(A[row_offset + j], max_val);
+            }
+
+            float sum_val {0.0f};
+
+            for (size_t j {}; j < c; j++)
+            {
+                float e = std::exp(A[row_offset + j] - max_val);
+                M[row_offset + j] = e;
+                sum_val += e;
+            }
+
+            for (size_t j{}; j < c; j++)
+            {
+                M[row_offset + j] /= sum_val;
+            }
+        }
+    };
+
+    auto one_hot = [](const unsigned char *y, float *Y, size_t batch, size_t k)
+    {
+        for (size_t i {}; i < batch; i++)
+        {
+            for (size_t j {}; j < k; j++)
+            {
+                size_t ij = i*k + j;
+                Y[ij] = (j == y[i]) ? 1.0f : 0.0f;
+            }
+        }
+    };
+
+    float *X_batch = new float[batch*n];
+    float *X_batch_T = new float[n*batch];
+    unsigned char *y_batch = new unsigned char[batch];
+    float *logits = new float[batch*k];
+    float *S_batch = new float[batch*k];
+    float *Y_batch = new float[batch*k] {};
+    float *rate = new float[n*k];
+
+    for (size_t i {}; i < m; i += batch)
+    {
+        if ((i + batch) > m) break;
+
+        for (size_t j {n*i}; j < n*(i + batch); j++)
+        {
+            X_batch[j - n*i] = X[j]; 
+        }
+
+        transpose(X_batch, X_batch_T, batch, n);
+
+        for (size_t j {i}; j < i + batch; j++)
+        {
+            y_batch[j - i] = y[j];
+        }
+
+        matmul(X_batch, theta, logits, batch, n, k);
+        softmax(logits, S_batch, batch, k);
+        one_hot(y_batch, Y_batch, batch, k);
+
+        for (size_t j {}; j < batch*k; j++)
+        {
+            S_batch[j] -= Y_batch[j];
+        }
+
+        matmul(X_batch_T, S_batch, rate, n, batch, k);
+
+        for (size_t j {}; j < n*k; j++)
+        {
+            theta[j] -= (lr/batch)*rate[j];
+        }
+    }
+
+    delete[] X_batch;
+    delete[] X_batch_T;
+    delete[] y_batch;
+    delete[] logits;
+    delete[] S_batch;
+    delete[] Y_batch;
+    delete[] rate;
     /// END YOUR CODE
 }
 

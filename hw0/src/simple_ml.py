@@ -20,7 +20,7 @@ def add(x, y):
         Sum of x + y
     """
     ### BEGIN YOUR CODE
-    pass
+    return x + y
     ### END YOUR CODE
 
 
@@ -48,7 +48,24 @@ def parse_mnist(image_filename, label_filename):
                 for MNIST will contain the values 0-9.
     """
     ### BEGIN YOUR CODE
-    pass
+    with gzip.open(image_filename, 'r') as f:
+        magic_num = int.from_bytes(f.read(4), 'big')
+        image_count = int.from_bytes(f.read(4), 'big')
+        row_count = int.from_bytes(f.read(4), 'big')
+        column_count = int.from_bytes(f.read(4), 'big')
+
+        img_data = f.read()
+        X = np.frombuffer(img_data, dtype=np.uint8).reshape(image_count, row_count*column_count)
+
+    with gzip.open(label_filename, 'r') as f:
+        magic_num = int.from_bytes(f.read(4), 'big')
+        label_count = int.from_bytes(f.read(4), 'big')
+
+        label_data = f.read()
+        y = np.frombuffer(label_data, dtype=np.uint8).reshape(label_count)
+
+    X = X.astype(np.float32) / 255.0
+    return (X, y)
     ### END YOUR CODE
 
 
@@ -68,7 +85,9 @@ def softmax_loss(Z, y):
         Average softmax loss over the sample.
     """
     ### BEGIN YOUR CODE
-    pass
+    xp = np.exp(Z)
+    S = xp / xp.sum(axis=1, keepdims=True)
+    return -np.log(S[np.arange(len(S)), y]).mean()
     ### END YOUR CODE
 
 
@@ -91,7 +110,21 @@ def softmax_regression_epoch(X, y, theta, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    for i in range(0, len(X), batch):
+        X_batch = X[i: i + batch]
+        y_batch = y[i: i + batch]
+
+        batch_size_c = len(X_batch)
+
+        logits = X_batch @ theta
+        logits -= logits.max(axis=1, keepdims=True)
+        Z_batch = np.exp(logits)
+        S_batch = Z_batch / Z_batch.sum(axis=1, keepdims=True)
+        Y_batch = np.zeros_like(Z_batch)
+        Y_batch[np.arange(batch_size_c), y_batch] = 1
+        rate = (lr/batch_size_c)*(X_batch.T @ (S_batch - Y_batch))
+
+        theta -= rate
     ### END YOUR CODE
 
 
@@ -118,7 +151,29 @@ def nn_epoch(X, y, W1, W2, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    for i in range(0, len(X), batch):
+        X_batch = X[i: i + batch]
+        y_batch = y[i: i + batch]
+
+        batch_size_c = len(X_batch)
+
+        h1 = np.maximum(0, X_batch @ W1)
+        h2 = h1 @ W2
+        D_relu_h1 = (h1 > 0).astype(h1.dtype)
+        logit = h2 - h2.max(axis=1, keepdims=True)
+        Z = np.exp(logit)
+        S = Z / Z.sum(axis=1, keepdims=True)
+        Y = np.zeros_like(S)
+        Y[np.arange(batch_size_c), y_batch] = 1
+
+        G2 = S - Y
+        G1 = (G2 @ W2.T) * D_relu_h1
+
+        rate_W1 = (lr/batch_size_c)*(X_batch.T @ G1)
+        rate_W2 = (lr/batch_size_c)*(h1.T @ G2)
+
+        W1 -= rate_W1
+        W2 -= rate_W2
     ### END YOUR CODE
 
 
