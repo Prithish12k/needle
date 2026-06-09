@@ -119,7 +119,7 @@ class EWiseDiv(TensorOp):
 
     def compute(self, a, b):
         ### BEGIN YOUR SOLUTION
-        return a/b
+        return array_api.divide(a, b)
         raise NotImplementedError()
         ### END YOUR SOLUTION
 

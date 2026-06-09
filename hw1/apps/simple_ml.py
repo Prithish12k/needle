@@ -33,7 +33,25 @@ def parse_mnist(image_filename, label_filename):
                 for MNIST will contain the values 0-9.
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+
+    with gzip.open(image_filename, 'r') as f:
+        magic_num = int.from_bytes(f.read(4), 'big')
+        image_count = int.from_bytes(f.read(4), 'big')
+        row_count = int.from_bytes(f.read(4), 'big')
+        column_count = int.from_bytes(f.read(4), 'big')
+
+        img_data = f.read()
+        X = np.frombuffer(img_data, dtype=np.uint8).reshape(image_count, row_count*column_count)
+
+    with gzip.open(label_filename, 'r') as f:
+        magic_num = int.from_bytes(f.read(4), 'big')
+        label_count = int.from_bytes(f.read(4), 'big')
+
+        label_data = f.read()
+        y = np.frombuffer(label_data, dtype=np.uint8).reshape(label_count)
+
+    X = X.astype(np.float32) / 255.0
+    return (X, y)
     ### END YOUR SOLUTION
 
 
@@ -54,8 +72,10 @@ def softmax_loss(Z, y_one_hot):
         Average softmax loss over the sample. (ndl.Tensor[np.float32])
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
-    ### END YOUR SOLUTION
+    xp = ndl.exp(Z)
+    normal = xp.sum(axes=1).reshape((xp.shape[0], 1)).broadcast_to(xp.shape)
+    S = xp / normal
+    return -(1/xp.shape[0])*(ndl.log(S)*y_one_hot).sum()
 
 
 def nn_epoch(X, y, W1, W2, lr=0.1, batch=100):
@@ -83,7 +103,20 @@ def nn_epoch(X, y, W1, W2, lr=0.1, batch=100):
     """
 
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    for i in range(0, len(X), batch):
+        X_batch = ndl.Tensor(X[i: i + batch], dtype=X.dtype)
+        y_batch = y[i: i + batch]
+        curr_batch = X_batch.shape[0]
+        logits = ndl.relu(X_batch @ W1) @ W2
+        Y_oh = np.zeros((y_batch.shape[0], logits.shape[-1]))
+        Y_oh[np.arange(y_batch.size), y_batch] = 1
+        Y = ndl.Tensor(Y_oh)
+        loss = softmax_loss(logits, Y)
+        loss.backward()
+
+        W1.data = W1.data - lr*W1.grad.data
+        W2.data = W2.data - lr*W2.grad.data
+    return (W1, W2)
     ### END YOUR SOLUTION
 
 
