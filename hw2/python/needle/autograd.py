@@ -358,7 +358,6 @@ class Tensor(Value):
     def transpose(self, axes=None):
         return needle.ops.Transpose(axes)(self)
 
-
     __radd__ = __add__
     __rmul__ = __mul__
 
@@ -380,7 +379,13 @@ def compute_gradient_of_variables(output_tensor, out_grad):
     reverse_topo_order = list(reversed(find_topo_sort([output_tensor])))
 
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    for node in reverse_topo_order:
+        node.grad = sum_node_list(node_to_output_grads_list[node])
+        if node.op is not None:
+            ip_grads = node.op.gradient_as_tuple(node.grad, node)
+            for ip, ip_grad in zip(node.inputs, ip_grads):
+                node_to_output_grads_list.setdefault(ip, []).append(ip_grad)
+
     ### END YOUR SOLUTION
 
 
@@ -393,6 +398,12 @@ def find_topo_sort(node_list: List[Value]) -> List[Value]:
     sort.
     """
     ### BEGIN YOUR SOLUTION
+    visited = {node: False for node in node_list}
+    topo_order = []
+    for node in node_list:
+        if not visited[node]:
+            topo_sort_dfs(node, visited, topo_order)
+    return topo_order
     raise NotImplementedError()
     ### END YOUR SOLUTION
 
@@ -400,7 +411,14 @@ def find_topo_sort(node_list: List[Value]) -> List[Value]:
 def topo_sort_dfs(node, visited, topo_order):
     """Post-order DFS"""
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    if visited.get(node, False):
+        return
+
+    visited[node] = True
+
+    for ip in node.inputs:
+        topo_sort_dfs(ip, visited, topo_order)
+    topo_order.append(node)
     ### END YOUR SOLUTION
 
 
